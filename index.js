@@ -1,17 +1,17 @@
 // biblioteca-backend/index.js
+// Carrega .env antes de qualquer outro módulo ser avaliado
+import 'dotenv/config';
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { ensureSchema } from './db.js';   // garante que a tabela no Turso existe
+import { ensureSchema } from './db.js';   // agora já encontra as envs
 
 // Importar rotas
 import libraryRoutes from './routes/library.js';
 import akinRoutes from './routes/akin.js';
 
-// Configurar dotenv para carregar variáveis de ambiente
-dotenv.config();
 
 // Configurar __dirname para ES modules (substituto de __dirname do CommonJS)
 const __filename = fileURLToPath(import.meta.url);

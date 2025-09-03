@@ -13,10 +13,10 @@
   "license": "ISC",
   "description": "API Express.js para Biblioteca Ars Magica",
   "dependencies": {
+    "@libsql/client": "^0.15.14",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.1",
-    "express": "^4.21.2",
-    "@libsql/client": "^0.6.0"
+    "dotenv": "^17.2.2",
+    "express": "^4.21.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

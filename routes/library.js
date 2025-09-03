@@ -1,13 +1,28 @@
 // biblioteca-backend/routes/library.js
 import express from 'express';
-import { db } from '../db.js';  // conexão com Turso
+import { db } from '../db.js';        // cliente Turso (@libsql/client)
 import { randomUUID } from 'crypto';
 
 const router = express.Router();
 
+/* Util: normaliza campos opcionais para null (evita valores "undefined" no banco) */
+function opt(v) {
+    return v === undefined ? null : v;
+}
+
+/* Util: valida payload básico de um item da biblioteca */
+function validatePayload(body) {
+    const errors = [];
+    if (!body?.type)  errors.push('type é obrigatório');
+    if (!body?.title) errors.push('title é obrigatório');
+    // author/ability/level/quality/category/description são opcionais
+    return errors;
+}
+
 /**
  * GET /api/library
- * Lista todos os itens da biblioteca
+ * Lista todos os itens (ordenados pelo created_at DESC)
+ * Dica: Se quiser paginação no futuro, aceite ?limit e ?offset e use LIMIT/OFFSET.
  */
 router.get('/', async (_req, res) => {
     try {
@@ -23,11 +38,12 @@ router.get('/', async (_req, res) => {
 
 /**
  * GET /api/library/:id
- * Retorna um item específico pelo ID
+ * Retorna um item específico
  */
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+
         const result = await db.execute({
             sql: 'SELECT * FROM library_items WHERE id = ?',
             args: [id],
@@ -46,10 +62,15 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/library
- * Cria um novo item na biblioteca
+ * Cria um novo item
  */
 router.post('/', async (req, res) => {
     try {
+        const problems = validatePayload(req.body);
+        if (problems.length) {
+            return res.status(400).json({ error: 'Payload inválido', details: problems });
+        }
+
         const id = `item-${randomUUID()}`;
         const {
             type,
@@ -64,20 +85,20 @@ router.post('/', async (req, res) => {
 
         await db.execute({
             sql: `
-                INSERT INTO library_items
-                (id, type, title, author, ability, level, quality, category, description)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `,
+        INSERT INTO library_items
+          (id, type, title, author, ability, level, quality, category, description)
+        VALUES (?,  ?,    ?,     ?,     ?,      ?,     ?,       ?,        ?)
+      `,
             args: [
                 id,
                 type,
                 title,
-                author ?? null,
-                ability ?? null,
-                level ?? null,
-                quality ?? null,
-                category ?? null,
-                description ?? null,
+                opt(author),
+                opt(ability),
+                opt(level),
+                opt(quality),
+                opt(category),
+                opt(description),
             ],
         });
 
@@ -100,6 +121,15 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+
+        // valida mínimo: se vier type/title, não podem ser vazios
+        const problems = [];
+        if ('type' in req.body && !req.body.type) problems.push('type não pode ser vazio');
+        if ('title' in req.body && !req.body.title) problems.push('title não pode ser vazio');
+        if (problems.length) {
+            return res.status(400).json({ error: 'Payload inválido', details: problems });
+        }
+
         const {
             type,
             title,
@@ -111,21 +141,30 @@ router.put('/:id', async (req, res) => {
             description,
         } = req.body;
 
+        // Atualiza apenas os campos enviados. Para simplificar,
+        // aqui atualizamos todos, mas com opt(null) para ausentes.
         await db.execute({
             sql: `
         UPDATE library_items
-        SET type=?, title=?, author=?, ability=?, level=?, quality=?, category=?, description=?
-        WHERE id=?
+           SET type = COALESCE(?, type),
+               title = COALESCE(?, title),
+               author = ?,
+               ability = ?,
+               level = ?,
+               quality = ?,
+               category = ?,
+               description = ?
+         WHERE id = ?
       `,
             args: [
-                type,
-                title,
-                author ?? null,
-                ability ?? null,
-                level ?? null,
-                quality ?? null,
-                category ?? null,
-                description ?? null,
+                type ?? null,            // COALESCE só se aplica a NOT NULL (type/title). Null mantém valor atual.
+                title ?? null,
+                opt(author),
+                opt(ability),
+                opt(level),
+                opt(quality),
+                opt(category),
+                opt(description),
                 id,
             ],
         });
@@ -148,16 +187,18 @@ router.put('/:id', async (req, res) => {
 
 /**
  * DELETE /api/library/:id
- * Remove um item da biblioteca
+ * Remove um item
  */
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
+
         await db.execute({
             sql: 'DELETE FROM library_items WHERE id = ?',
             args: [id],
         });
 
+        // Mesmo se o id não existir, retornar 204 é aceitável (idempotente).
         res.status(204).end();
     } catch (error) {
         console.error('Erro ao excluir item:', error);

@@ -15,18 +15,69 @@ export const db = createClient({
 // Criação de tabela(s) se não existirem — rode uma vez por cold start.
 // Ajuste o schema ao seu domínio real.
 export async function ensureSchema() {
+  // Tabela da biblioteca (mantida)
   await db.execute(`
     CREATE TABLE IF NOT EXISTS library_items (
       id TEXT PRIMARY KEY,
-      type TEXT NOT NULL,          -- 'Summae' | 'Tractatus' | 'LabText'
+      type TEXT NOT NULL,
       title TEXT NOT NULL,
       author TEXT,
-      ability TEXT,                -- opcional (ex.: para Summae/Tractatus)
-      level INTEGER,               -- Summae
-      quality INTEGER,             -- Summae/Tractatus
-      category TEXT,               -- LabTextCategory
+      ability TEXT,
+      level INTEGER,
+      quality INTEGER,
+      category TEXT,
       description TEXT,
       created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  // --- AKIN ---
+
+  // Perfil (1 registro "akin" ou múltiplos perfis se desejar)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS akin_profile (
+      id TEXT PRIMARY KEY,              -- ex.: 'akin'
+      name TEXT,
+      house TEXT,
+      age INTEGER,
+      characteristics_json TEXT,        -- JSON string (int, per, str, etc.)
+      arts_json TEXT,                   -- JSON string (creo, intellego, etc.)
+      spells TEXT,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Abilities
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS akin_abilities (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      value INTEGER NOT NULL,
+      specialty TEXT
+    );
+  `);
+
+  // Virtues
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS akin_virtues (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      is_major INTEGER NOT NULL DEFAULT 0,   -- 0=false, 1=true
+      page INTEGER
+    );
+  `);
+
+  // Flaws
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS akin_flaws (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      is_major INTEGER NOT NULL DEFAULT 0,
+      page INTEGER
     );
   `);
 }

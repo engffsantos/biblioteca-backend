@@ -1,4 +1,4 @@
-// biblioteca-backend/routes/library.js
+// routes/library.js — CRUD de itens da biblioteca
 import express from 'express';
 import { exec } from '../db.js';
 import { randomUUID } from 'crypto';
@@ -61,10 +61,10 @@ router.post('/', async (req, res) => {
         } = req.body;
 
         await exec(`
-      INSERT INTO library_items
-        (id, type, title, author, ability, level, quality, category, description)
-      VALUES (?,  ?,    ?,     ?,     ?,      ?,     ?,       ?,        ?)
-    `, [
+            INSERT INTO library_items
+            (id, type, title, author, ability, level, quality, category, description)
+            VALUES (?,  ?,    ?,     ?,     ?,      ?,     ?,       ?,        ?)
+        `, [
             id, type, title,
             opt(author), opt(ability), opt(level), opt(quality),
             opt(category), opt(description),
@@ -87,17 +87,17 @@ router.put('/:id', async (req, res) => {
         } = req.body;
 
         await exec(`
-      UPDATE library_items
-         SET type = COALESCE(?, type),
-             title = COALESCE(?, title),
-             author = ?,
-             ability = ?,
-             level = ?,
-             quality = ?,
-             category = ?,
-             description = ?
-       WHERE id = ?
-    `, [
+            UPDATE library_items
+            SET type = COALESCE(?, type),
+                title = COALESCE(?, title),
+                author = ?,
+                ability = ?,
+                level = ?,
+                quality = ?,
+                category = ?,
+                description = ?
+            WHERE id = ?
+        `, [
             type ?? null, title ?? null,
             opt(author), opt(ability), opt(level), opt(quality),
             opt(category), opt(description),

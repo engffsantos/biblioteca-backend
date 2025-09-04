@@ -18,17 +18,17 @@ const __dirname = path.dirname(__filename);
 // ============================
 const app = express();
 
-// 🔐 CORS por lista branca vinda do ENV (ALLOWED_ORIGINS)
-//    Ex.: "https://SEU-FRONT.vercel.app, http://localhost:5173"
-const allowed = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
+// 🔐 CORS — Domínios permitidos (produção + dev local)
+//    Inclui seu frontend Vercel e o localhost para testes
+const allowed = [
+    'https://biblioteca-frontend-sage.vercel.app',
+    'http://localhost:5173'
+];
 
 app.use(
     cors({
         origin: (origin, cb) => {
-            // Sem Origin (Postman/SSR) -> libera
+            // Requests sem Origin (ex.: Postman, SSR) -> libera
             if (!origin) return cb(null, true);
             if (allowed.includes(origin)) return cb(null, true);
             return cb(new Error(`CORS bloqueado para: ${origin}`));
@@ -46,7 +46,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ============================
 // Schema Turso (uma vez por cold start)
 // ============================
-// Não usamos top-level await: criamos um "ready" e aguardamos no middleware
 const ready = (async () => {
     try {
         await ensureSchema();
@@ -57,7 +56,7 @@ const ready = (async () => {
     }
 })();
 
-// Garante schema antes de qualquer rota
+// Middleware para garantir schema antes de cada rota
 app.use(async (_req, _res, next) => {
     try {
         await ready;
@@ -99,12 +98,10 @@ app.use('/api/akin', akinRoutes);
 // ============================
 // Export para Vercel (@vercel/node)
 // ============================
-// A Vercel aceita um Express app como export default:
 export default app;
 
 // ============================
 // Execução local (npm start / nodemon)
-// Em produção (Vercel), isso NÃO roda.
 // ============================
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     const PORT = process.env.PORT || 3000;

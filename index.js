@@ -18,26 +18,65 @@ const __dirname = path.dirname(__filename);
 // ============================
 const app = express();
 
-// 🔐 CORS — Domínios permitidos (produção + dev local)
-//    Inclui seu frontend Vercel e o localhost para testes
-const allowed = [
+/**
+ * CORS — produção + previews + dev
+ *
+ * - Produção: https://biblioteca-frontend-sage.vercel.app
+ * - Previews: https://biblioteca-frontend-sage-*.vercel.app
+ * - Dev:      http://localhost:5173
+ *
+ * Também aceita lista por ENV (ALLOWED_ORIGINS="https://a, http://b").
+ */
+const STATIC_ALLOWED = [
     'https://biblioteca-frontend-sage.vercel.app',
-    'http://localhost:5173'
+    'http://localhost:5173',
 ];
 
-app.use(
-    cors({
-        origin: (origin, cb) => {
-            // Requests sem Origin (ex.: Postman, SSR) -> libera
-            if (!origin) return cb(null, true);
-            if (allowed.includes(origin)) return cb(null, true);
-            return cb(new Error(`CORS bloqueado para: ${origin}`));
-        },
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
-    })
-);
+const ENV_ALLOWED = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+function isAllowedOrigin(origin) {
+    if (!origin) return true; // Postman/SSR
+    if (STATIC_ALLOWED.includes(origin)) return true;
+    if (ENV_ALLOWED.includes(origin)) return true;
+
+    // Permite previews do mesmo projeto na Vercel
+    // Ex.: https://biblioteca-frontend-sage-<branch>-<hash>.vercel.app
+    try {
+        const url = new URL(origin);
+        const host = url.hostname.toLowerCase();
+        if (
+            host.endsWith('.vercel.app') &&
+            (host === 'biblioteca-frontend-sage.vercel.app' ||
+                host.startsWith('biblioteca-frontend-sage-'))
+        ) {
+            return true;
+        }
+    } catch {
+        // se origin for algo inválido, nega
+    }
+
+    return false;
+}
+
+const corsMiddleware = cors({
+    origin: (origin, cb) => {
+        const ok = isAllowedOrigin(origin);
+        if (ok) return cb(null, true);
+        console.warn('[CORS] BLOQUEADO para Origin:', origin);
+        return cb(new Error(`CORS bloqueado para: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+});
+
+app.use(corsMiddleware);
+
+// Lida explicitamente com pré-flight (OPTIONS) para todas as rotas
+app.options('*', corsMiddleware);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -56,7 +95,7 @@ const ready = (async () => {
     }
 })();
 
-// Middleware para garantir schema antes de cada rota
+// Garante schema antes de qualquer rota
 app.use(async (_req, _res, next) => {
     try {
         await ready;
